@@ -43,3 +43,15 @@ Run the verifier:
 ghc -O2 Claim.hs -o claim && ./claim
 gcc -std=c11 -O2 -o prove prove.c && ./prove
 python3 prove.py
+```
+
+`Claim.hs` and `prove.c` check identities (7! = 5040, 2^16 = 65536, 97 − 5 = 92) that hold whatever the claim says; they cannot come out false about it. (`prove.py` is named here but not yet in the repository.)
+
+## The Gate
+
+```bash
+node gate.mjs        # the claims' outcomes as WebVTT; exit 0 when each is as predicted
+node gate.mjs wsn    # the outcome grammar in Wirth syntax notation
+```
+
+`gate.mjs` is the operational check: each claim is a tagged template, its readings taken through a `Proxy` with `Reflect` and caught, after boxedPINE's interface carrier (`rosetta/src/grammar/interface.ts`) and MDN's [Meta programming](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Meta_programming). A claim comes out `HOLDS`, `FAILS`, or the error its reading threw, named as the [JavaScript error reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors) names it. Its claims can fail: "5 is the only prime beginning five primes six apart" holds and the same of 7 fails; the delta law returns every 16-bit word at 8 and not at 4; and "97 is the anchor because" is `ReferenceError: "anchor" is not defined`, until a reading that chooses 97 is given. Each outcome is predicted in the file before it runs, and a prediction that does not hold makes the gate exit 1.

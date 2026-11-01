@@ -134,6 +134,20 @@
 
     #readout:empty { display: none; }
 
+    #clockline {
+      flex: 1 1 100%;
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      line-height: 1.45;
+      color: var(--gold);
+      white-space: pre-wrap;
+    }
+
+    #clockline:empty { display: none; }
+
+    button[aria-pressed="true"] { background: rgba(232, 195, 106, 0.16); }
+
     .hint {
       position: fixed;
       z-index: 2;
@@ -249,7 +263,9 @@
   <footer class="hud plate">
     <p class="claim">The modulus is the indexer. The prime-gap distance is the coordinate. The read is the proof.</p>
     <button id="prove" type="button">Log the obligations</button>
+    <button id="audio" type="button" aria-pressed="false">Audio</button>
     <p id="readout" role="status"></p>
+    <p id="clockline"></p>
   </footer>
 
   <script type="module">
@@ -630,6 +646,138 @@
     scene.add(new THREE.PointLight(0xe8c36a, 1.4, 24, 2).translateY(0.2));
     scene.add(new THREE.PointLight(0x8fd0e8, 0.8, 30, 2).translateY(yCoord));
 
+    // Eight voices up the ladder: 5 + 30k for k = 0..7, apex to rim (210 / 7 = 30),
+    // one octant apart. ROYGBIV and the octave red; A3 B3 C4 D4 E4 F4 G4 A4.
+    const voiceSpec = [
+      { note: "A3", freq: 220.00, hue: "255,72,72" },
+      { note: "B3", freq: 246.94, hue: "255,150,60" },
+      { note: "C4", freq: 261.63, hue: "255,226,90" },
+      { note: "D4", freq: 293.66, hue: "110,220,120" },
+      { note: "E4", freq: 329.63, hue: "90,150,255" },
+      { note: "F4", freq: 349.23, hue: "110,90,230" },
+      { note: "G4", freq: 392.00, hue: "190,110,240" },
+      { note: "A4", freq: 440.00, hue: "255,72,72" },
+    ];
+    const voices = voiceSpec.map((spec, k) => {
+      const y = yOf(APEX + 30 * k);
+      const r = (y / HEIGHT) * RADIUS;
+      const a = (k / 8) * Math.PI * 2;
+      const pos = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
+      const glow = addSprite(glowTexture(`rgba(${spec.hue},0.95)`, `rgba(${spec.hue},0.25)`), pos.x, pos.y, pos.z, 0.7, 0.7);
+      glow.material.opacity = 0.18;
+      return { ...spec, pos, glow, level: 0, target: 0 };
+    });
+
+    // The 1/73 clock: its period is the eight digits 0 1 3 6 9 8 6 3.
+    // Each tick reads four cyclic digits as a 16-bit BCD word; voice k sounds
+    // when bit k XOR bit k+8 is 1 (the word folded onto the eight voices).
+    const PERIOD = [0, 1, 3, 6, 9, 8, 6, 3];
+    const TICK_MS = 730;
+    let step = 0;
+    let audio = null;
+    let timer = 0;
+
+    function wordAt(i) {
+      let w = 0;
+      for (let j = 0; j < 4; j++) w = (w << 4) | PERIOD[(i + j) % 8];
+      return w;
+    }
+
+    function startAudio() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const master = ctx.createGain();
+      master.gain.value = 0.7;
+      master.connect(ctx.destination);
+      const chains = voices.map((v) => {
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        const panner = ctx.createPanner();
+        panner.panningModel = "HRTF";
+        panner.distanceModel = "inverse";
+        panner.refDistance = 8;
+        panner.rolloffFactor = 0.6;
+        if (panner.positionX) {
+          panner.positionX.value = v.pos.x;
+          panner.positionY.value = v.pos.y;
+          panner.positionZ.value = v.pos.z;
+        } else {
+          panner.setPosition(v.pos.x, v.pos.y, v.pos.z);
+        }
+        const fundamental = ctx.createOscillator();
+        fundamental.type = "sine";
+        fundamental.frequency.value = v.freq;
+        const harmonic = ctx.createOscillator();
+        harmonic.type = "triangle";
+        harmonic.frequency.value = v.freq * 2;
+        const harmonicGain = ctx.createGain();
+        harmonicGain.gain.value = 0.18;
+        fundamental.connect(gain);
+        harmonic.connect(harmonicGain).connect(gain);
+        gain.connect(panner).connect(master);
+        fundamental.start();
+        harmonic.start();
+        return gain;
+      });
+      return { ctx, chains };
+    }
+
+    const clockLine = document.getElementById("clockline");
+
+    function tickClock() {
+      const digit = PERIOD[step % 8];
+      const word = wordAt(step % 8);
+      const fold = (word ^ (word >> 8)) & 0xff;
+      const now = audio.ctx.currentTime;
+      const sounding = [];
+      voices.forEach((v, k) => {
+        const on = (fold >> k) & 1;
+        v.target = on;
+        audio.chains[k].gain.setTargetAtTime(on ? 0.1 : 0, now, on ? 0.04 : 0.12);
+        if (on) sounding.push(v.note);
+      });
+      clockLine.textContent =
+        `1/73 · digit ${digit} · word 0x${word.toString(16).padStart(4, "0")} · ` +
+        `fold ${fold.toString(2).padStart(8, "0")} · ${sounding.join(" ") || "rest"}`;
+      step++;
+    }
+
+    function updateListener() {
+      if (!audio) return;
+      const l = audio.ctx.listener;
+      const f = new THREE.Vector3();
+      camera.getWorldDirection(f);
+      const u = camera.up;
+      const p = camera.position;
+      if (l.positionX) {
+        l.positionX.value = p.x; l.positionY.value = p.y; l.positionZ.value = p.z;
+        l.forwardX.value = f.x; l.forwardY.value = f.y; l.forwardZ.value = f.z;
+        l.upX.value = u.x; l.upY.value = u.y; l.upZ.value = u.z;
+      } else {
+        l.setPosition(p.x, p.y, p.z);
+        l.setOrientation(f.x, f.y, f.z, u.x, u.y, u.z);
+      }
+    }
+
+    const audioButton = document.getElementById("audio");
+    audioButton.addEventListener("click", async () => {
+      const running = audioButton.getAttribute("aria-pressed") === "true";
+      if (running) {
+        clearInterval(timer);
+        for (const v of voices) v.target = 0;
+        await audio.ctx.suspend();
+        audioButton.setAttribute("aria-pressed", "false");
+        audioButton.textContent = "Audio";
+        clockLine.textContent = "";
+        return;
+      }
+      if (!audio) audio = startAudio();
+      await audio.ctx.resume();
+      audioButton.setAttribute("aria-pressed", "true");
+      audioButton.textContent = "Audio on";
+      tickClock();
+      timer = setInterval(tickClock, TICK_MS);
+    });
+
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const clock = new THREE.Clock();
 
@@ -647,7 +795,14 @@
         }
         stars.material.uniforms.uTime.value = t;
       }
+      for (const v of voices) {
+        v.level += (v.target - v.level) * Math.min(1, dt * 10);
+        v.glow.material.opacity = 0.18 + v.level * 0.82;
+        const s = 0.7 + v.level * 0.6;
+        v.glow.scale.set(s, s, 1);
+      }
       controls.update();
+      updateListener();
       renderer.render(scene, camera);
     }
     renderer.setAnimationLoop(frame);
