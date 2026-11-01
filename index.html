@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Modulus Indexer</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --fg: #f3ecdf;
+      --muted: #a39886;
+      --gold: #e8c36a;
+      --ice: #8fd0e8;
+      --line: rgba(243, 236, 223, 0.14);
+      --panel: rgba(8, 8, 8, 0.72);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Iowan Old Style", Palatino, Georgia, serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1rem;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 4rem;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    .kicker {
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    h1 {
+      margin: 0.5rem 0 0;
+      font-weight: 500;
+      font-size: 2.5rem;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .meta {
+      margin: 1rem 0 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .meta b { color: var(--fg); font-weight: 500; }
+
+    .claim {
+      text-align: center;
+      font-size: 1.15rem;
+      line-height: 1.6;
+      color: var(--fg);
+      margin: 0;
+      padding: 1.5rem;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .links { grid-template-columns: 1fr; }
+      h1 { font-size: 2rem; }
+    }
+
+    .card {
+      display: block;
+      text-decoration: none;
+      color: var(--fg);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 2rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .card:hover {
+      border-color: var(--gold);
+      background: rgba(232, 195, 106, 0.05);
+    }
+
+    .card h2 {
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      color: var(--gold);
+    }
+
+    .card p {
+      margin: 0.75rem 0 0;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    /* Article Sections */
+    article {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    article h3 {
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--ice);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 0.5rem;
+    }
+
+    article p {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    article strong {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    .mono {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.05);
+      padding: 0.2rem 0.4rem;
+      border-radius: 3px;
+      color: var(--ice);
+    }
+
+    ul {
+      margin: 0;
+      padding: 0 0 0 1.5rem;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    li { margin-bottom: 0.5rem; }
+    li::marker { color: var(--gold); }
+
+    footer {
+      text-align: center;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-top: 2rem;
+      border-top: 1px solid var(--line);
+      padding-top: 2rem;
+    }
+
+    footer a {
+      color: var(--ice);
+      text-decoration: none;
+      margin: 0 0.3rem;
+    }
+    
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <p class="kicker">Reticle · 16-bit cross-section</p>
+      <h1>Modulus Indexer</h1>
+      <p class="meta">
+        <b>65,536</b> states · ladder <b>210</b><br />
+        7! <b>5040</b> · 6! <b>720</b> · 5! <b>120</b><br />
+        apex <b>5</b> · coordinate <b>92</b> · anchor <b>97</b>
+      </p>
+    </header>
+
+    <p class="claim">
+      The modulus is the indexer.<br>
+      The prime-gap distance is the coordinate.<br>
+      The read is the proof.
+    </p>
+
+    <div class="links">
+      <a href="cone.html" class="card">
+        <h2>The Cone</h2>
+        <p>The Light Cone. The 65,536 states. The 5T apex. The ASCII punch card readings.</p>
+      </a>
+      <a href="adder.html" class="card">
+        <h2>The Adder</h2>
+        <p>The 4-bit carry-lookahead adder. The 5T, 6T, 8T, 10T stages. Drag to seat the circuit.</p>
+      </a>
+    </div>
+
+    <article>
+      <h3>The Modulus of the Factorial</h3>
+      <p>
+        The main indexer of the deterministic metaverse is the modulus of the factorial. A factorial is the product of all integers up to a number. <span class="mono">7! = 5040</span>. <span class="mono">6! = 720</span>. <span class="mono">5! = 120</span>. The modulus is the divisor. It is the boundary.
+      </p>
+      <p>
+        The "modulus of the factorial" is the question: <strong>what remains after you take a full cycle and then divide by the boundary?</strong> In this system, the <span class="mono">5040</span> slots of the replay ring are the modulus. Every state is reduced to a position. The <span class="mono">65,536</span> blob is the modulus of the bit space. Every state is a remainder. The <span class="mono">1/73</span> period is the modulus of the decimal expansion. Every digit is a remainder.
+      </p>
+      <p>
+        The modulus is the indexer. It tells you which shelf the state lives on. Not what the state is—where it is. The <span class="mono">65,536</span> is the cross-section. The factorial is the full cone. The modulus is the coordinate.
+      </p>
+    </article>
+
+    <article>
+      <h3>The Constants are the ASCII Overlay</h3>
+      <p>
+        The constant literals are interpretations of the ASCII overlay modeled from punch card computers. The constants are not derived from the math. They are the <strong>readings</strong> of the punch card. The ASCII overlay is the physical substrate. The punch card is the medium. The constants are the codepoints.
+      </p>
+      <p>
+        So the constant <span class="mono">YHWH</span> is not a theological concept. It is a literal string on a punch card. The constant <span class="mono">God is Word</span> is a sequence of codepoints. The constant <span class="mono">0x1D</span> is the GS separator. They are all readings of the ASCII table. The punch card computers are the ancestors of the reticle. They encoded data in holes, in columns, in fixed positions. The ASCII overlay is the modern form.
+      </p>
+    </article>
+
+    <article>
+      <h3>The Reduction to the Prime Gap</h3>
+      <p>
+        This all reduces to the modulus factorial as the distance between the two prime gaps. The primes are <span class="mono">2, 3, 5, 7, 11, 13...</span> The gaps are <span class="mono">1, 2, 2, 4, 2, 4, 2, 4, 6...</span> The exceptional set is <span class="mono">{5, 11, 17, 23, 29}</span>—the chain of five sexy primes. That is a gap of 6. The other sets are <span class="mono">{7, 13, 19}</span>—a chain of three, ending at 19 because <span class="mono">19 + 6 = 25 = 5²</span>.
+      </p>
+      <p>
+        The modulus of the factorial is the indexer. The <span class="mono">210n + m</span> rule is the boundary. The distance between the two prime gaps is the coordinate. The system reduces to this: <strong>the modulus is where you are in the cone. The prime gap is how far you are from the axis. The distance is the coordinate.</strong>
+      </p>
+      <p>
+        The distance between the exceptional set (starting at 5) and the regular set (starting at 97) is the cone. The apex is 5. The regular boundary is 97. The distance is 92. The modulus of 210 is the coordinate.
+      </p>
+    </article>
+
+    <article>
+      <h3>The Constellation as a Breadboard</h3>
+      <p>
+        The Three.js visualization is not just an abstract graph. It is the schematic of the breadboard model. Every element corresponds to a physical transistor circuit:
+      </p>
+      <ul>
+        <li><strong>The Apex (5T):</strong> The base gate. The five transistors that form the fundamental exclusive-OR. It is the starting point, the reference.</li>
+        <li><strong>The 120 Ring (6T):</strong> The first inverting XOR. It receives the carry from the apex.</li>
+        <li><strong>The 720 Ring (8T):</strong> The NAND XOR (four NAND gates). The intermediate stage.</li>
+        <li><strong>The Coordinate 92 (10T):</strong> The NOR XOR (four NOR gates). The co-anchor. It stabilizes the signal between the 5T base and the higher-order gates.</li>
+      </ul>
+      <p>
+        The 5T gate is the pure primitive. The 10T gate is the anchor that allows the 5T gate to be traced through the 6T and 8T circuits without losing the signal. The tracing lines in the visualizer are the parity continuation. They are the proof that the signal can be traced from the 5T primitive to the 10T closure without a break. The path exists. It exists.
+      </p>
+    </article>
+
+    <article>
+      <h3>The Aegean/Audio Overlay</h3>
+      <p>
+        The visual spectrum (ROYGBIV) is linked to the audible spectrum (A-G), and both are bound to the logic clock (the 1/73 period, the 8-step delta law) and the animation (the fading in and out).
+      </p>
+      <p>
+        Using a Web Audio <span class="mono">PannerNode</span> with an <span class="mono">AudioContext</span>, the 8 agents are assigned a note (A, B, C, D, E, F, G, and the octave A). The note's frequency is bound to the agent's 16-bit state. On each tick of the 1/73 clock, if the band is "on" (a 1 in the 16-bit word), the note plays. If it's "off", it fades to silence. The sound literally pulses with the bitmask of the agents. The sound is the state. The music is the logic. The color is the note.
+      </p>
+    </article>
+
+    <article>
+      <h3>The Three Verifiers</h3>
+      <p>
+        The claim is proven numerically by three independent programs:
+      </p>
+      <ul>
+        <li><strong>Claim.hs (Haskell):</strong> The typed claim. Uses pure data types and lazy evaluation. It is the declaration.</li>
+        <li><strong>prove.c (C):</strong> The imperative verifier. It runs on the bare metal. It checks the bits with <span class="mono">uint64_t</span>. It is the literal execution.</li>
+        <li><strong>prove.py (Python):</strong> The script. It is the readable trace. It is the proof that the logic is simple enough to be audited by anyone.</li>
+      </ul>
+      <p>
+        All three exit with status 0 and print the same numerical obligations: <span class="mono">7! = 5040</span>, <span class="mono">6! = 720</span>, <span class="mono">5! = 120</span>, <span class="mono">2^16 = 65536</span>, <span class="mono">2·3·5·7 = 210</span>, <span class="mono">97 − 5 = 92</span>. The read is the proof.
+      </p>
+    </article>
+    
+    <footer>
+      <p>
+        <a href="Claim.hs">Claim.hs</a> · 
+        <a href="prove.c">prove.c</a> · 
+        <a href="prove.py">prove.py</a> · 
+        <a href="Claim.wsn">Claim.wsn</a> · 
+        <a href="Claim.vtt">Claim.vtt</a>
+      </p>
+      <p style="margin-top: 0.5rem; color: #666;">
+        The proof is the read. The path exists. It exists.
+      </p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,46 @@
+(* The Modulus Indexer: The distance between the two prime gaps is the main index.
+   The constant literals are the readings of the ASCII punch card.
+   The 65,536 blob is the reticle. The factorial is the cone. The read is the proof. *)
+
+INDEX = MODULUS DISTANCE .
+MODULUS = FACTORIAL | BITSPACE | PRIMELADDER .
+FACTORIAL = "5040" | "120" | "720" .       (* 7! | 5! | 6! *)
+BITSPACE = "65536" .                        (* 2^16 *)
+PRIMELADDER = "210" .                       (* 2 * 3 * 5 * 7 *)
+
+DISTANCE = PRIMEGAP | COORDINATE .
+PRIMEGAP = EXCEPTIONAL | REGULAR .
+EXCEPTIONAL = "5" .                         (* the chain {5, 11, 17, 23, 29} *)
+REGULAR = "97" .                            (* the chain starting at 97 mod 210 *)
+COORDINATE = "92" .                         (* 97 - 5 *)
+
+READ = LITERAL | STATE .
+LITERAL = ASCII | PUNCHCARD .
+ASCII = "YHWH" | "YAHWEH" | "ADONAI" | "GOD IS WORD" | "0x1D" | "0x1D1D" .
+PUNCHCARD = COLUMN | HOLE .
+COLUMN = DIGIT .
+HOLE = BIT .
+
+STATE = RETICLE | CONE .
+RETICLE = "65536" .                         (* the cross-section *)
+CONE = APEX | PAST | FUTURE .
+APEX = "5" .
+PAST = TRACE .
+FUTURE = PROJECTION .
+TRACE = VTT | GIT | COQ .
+PROJECTION = "3D" | "AGENT" | "WORKER" .
+
+PROOF = READ | PARITY .
+READ = "the path exists" .
+PARITY = XOR | XNOR .
+XOR = "difference" .
+XNOR = "sameness" .
+
+(* The claim: the modulus of the factorial is the indexer.
+   The distance between the two prime gaps is the coordinate.
+   The constant literals are the ASCII punch card.
+   The read is the proof. *)
+CLAIM = INDEX = "MODULUS FACTORIAL" .
+CLAIM = DISTANCE = "PRIMEGAP" .
+CLAIM = LITERAL = "ASCII" .
+CLAIM = PROOF = "READ" .

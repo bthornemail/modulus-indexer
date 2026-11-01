@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Modulus Indexer</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --fg: #f3ecdf;
+      --muted: #a39886;
+      --gold: #e8c36a;
+      --ice: #8fd0e8;
+      --line: rgba(243, 236, 223, 0.14);
+      --panel: rgba(8, 8, 8, 0.72);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+      font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .hud {
+      position: fixed;
+      z-index: 2;
+      pointer-events: none;
+      max-width: min(28rem, calc(100vw - 1.5rem));
+    }
+
+    .hud > * { pointer-events: auto; }
+
+    .plate {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    header.hud {
+      top: 0.85rem;
+      left: 0.85rem;
+      padding: 0.85rem 1rem 0.75rem;
+    }
+
+    .kicker {
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    h1 {
+      margin: 0.2rem 0 0;
+      font-weight: 500;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .meta {
+      margin: 0.55rem 0 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .meta b {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    footer.hud {
+      left: 0.85rem;
+      right: 0.85rem;
+      bottom: 0.85rem;
+      max-width: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 0.75rem 1rem;
+      padding: 0.8rem 0.9rem;
+    }
+
+    .claim {
+      margin: 0;
+      flex: 1 1 16rem;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgba(232, 195, 106, 0.55);
+      background: transparent;
+      color: var(--gold);
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      padding: 0.7rem 0.9rem;
+      min-height: 44px;
+      cursor: pointer;
+    }
+
+    button:hover { background: rgba(232, 195, 106, 0.1); }
+    button:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+
+    #readout {
+      flex: 1 1 100%;
+      margin: 0;
+      min-height: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      line-height: 1.45;
+      color: var(--ice);
+    }
+
+    #readout:empty { display: none; }
+
+    .hint {
+      position: fixed;
+      z-index: 2;
+      top: 0.85rem;
+      right: 0.85rem;
+      margin: 0;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    @media (max-width: 640px) {
+      h1 { font-size: 1.2rem; }
+      .hint { display: none; }
+      header.hud { max-width: calc(100vw - 1.5rem); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hint { display: none; }
+    }
+  </style>
+  <!--
+    three@0.160.0 UMD build (three.min.js) cannot import OrbitControls,
+    which is an ES module that resolves the bare specifier "three".
+    The import map binds that specifier to the same version's module build.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <header class="hud plate">
+    <p class="kicker">Reticle · 16-bit cross-section</p>
+    <h1>Modulus Indexer</h1>
+    <p class="meta">
+      <b>65,536</b> states · ladder <b>210</b><br />
+      7! <b>5040</b> · 6! <b>720</b> · 5! <b>120</b><br />
+      apex <b>5</b> · coordinate <b>92</b> · anchor <b>97</b>
+    </p>
+  </header>
+
+  <p class="hint">Drag to orbit</p>
+
+  <footer class="hud plate">
+    <p class="claim">The modulus is the indexer. The prime-gap distance is the coordinate. The read is the proof.</p>
+    <button id="prove" type="button">Log the obligations</button>
+    <p id="readout" role="status"></p>
+  </footer>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+    const HEIGHT = 16;
+    const RADIUS = 6.2;
+    const LADDER = 210;
+    const APEX = 5;
+    const COORD = 92;
+
+    const canvas = document.getElementById("stage");
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderer.setClearColor(0x050505, 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050505, 0.028);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(10.5, 7.2, 13.5);
+
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.target.set(0, HEIGHT * 0.42, 0);
+    controls.minDistance = 4;
+    controls.maxDistance = 48;
+    controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    controls.autoRotateSpeed = 0.45;
+    controls.update();
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    function yOf(value) {
+      return ((value - APEX) / LADDER) * HEIGHT;
+    }
+
+    // Cone: apex at origin, opening along +Y.
+    const coneGeo = new THREE.ConeGeometry(RADIUS, HEIGHT, 64, 12, true);
+    coneGeo.translate(0, -HEIGHT / 2, 0);
+    coneGeo.rotateX(Math.PI);
+    const cone = new THREE.Mesh(
+      coneGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0x8fd0e8,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.22,
+      }),
+    );
+    root.add(cone);
+
+    const shellGeo = new THREE.ConeGeometry(RADIUS * 1.04, HEIGHT, 6, 1, true);
+    shellGeo.translate(0, -HEIGHT / 2, 0);
+    shellGeo.rotateX(Math.PI);
+    root.add(new THREE.Mesh(
+      shellGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0xe8c36a,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.12,
+      }),
+    ));
+
+    const axisGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, HEIGHT, 0),
+    ]);
+    root.add(new THREE.Line(
+      axisGeo,
+      new THREE.LineBasicMaterial({ color: 0xe8c36a, transparent: true, opacity: 0.45 }),
+    ));
+
+    function glowTexture(inner, outer) {
+      const c = document.createElement("canvas");
+      c.width = 256;
+      c.height = 256;
+      const g = c.getContext("2d");
+      const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+      grd.addColorStop(0, inner);
+      grd.addColorStop(0.35, outer);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = grd;
+      g.fillRect(0, 0, 256, 256);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function addSprite(map, x, y, z, sx, sy) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }));
+      s.position.set(x, y, z);
+      s.scale.set(sx, sy, 1);
+      root.add(s);
+      return s;
+    }
+
+    const goldGlow = glowTexture("rgba(255,236,190,0.95)", "rgba(232,195,106,0.25)");
+    const iceGlow = glowTexture("rgba(220,245,255,0.95)", "rgba(143,208,232,0.22)");
+
+    addSprite(goldGlow, 0, 0, 0, 1.8, 1.8);
+    root.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xfff4d2 }),
+    ));
+
+    const yCoord = yOf(APEX + COORD);
+    addSprite(iceGlow, 0, yCoord, 0, 1.5, 1.5);
+    const coordMark = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0xf7fbff }),
+    );
+    coordMark.position.set(0, yCoord, 0);
+    root.add(coordMark);
+
+    const tick = new THREE.Mesh(
+      new THREE.RingGeometry(0.28, 0.31, 48),
+      new THREE.MeshBasicMaterial({ color: 0xe8c36a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }),
+    );
+    tick.rotation.x = Math.PI / 2;
+    tick.position.y = yCoord;
+    root.add(tick);
+
+    // Exceptional chain {5, 11, 17, 23, 29}, gap 6, as a small crown at the apex.
+    const chain = [5, 11, 17, 23, 29];
+    const chainPts = [];
+    chain.forEach((p, i) => {
+      const a = (i / chain.length) * Math.PI * 2;
+      const x = Math.cos(a) * 0.62;
+      const z = Math.sin(a) * 0.62;
+      const y = 0.35;
+      chainPts.push(new THREE.Vector3(x, y, z));
+      const bead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xe8c36a }),
+      );
+      bead.position.set(x, y, z);
+      root.add(bead);
+    });
+    chainPts.push(chainPts[0].clone());
+    root.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(chainPts),
+      new THREE.LineBasicMaterial({ color: 0xe8c36a, transparent: true, opacity: 0.55 }),
+    ));
+
+    // Sparse reticle: 2,048 samples standing in for 65,536 states, on the cone surface.
+    const COUNT = 2048;
+    const positions = new Float32Array(COUNT * 3);
+    const colors = new Float32Array(COUNT * 3);
+    const seeds = new Float32Array(COUNT);
+    const gold = new THREE.Color(0xe8c36a);
+    const ice = new THREE.Color(0x8fd0e8);
+    const paper = new THREE.Color(0xf3ecdf);
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < COUNT; i++) {
+      const state = (i * 32) % 65536;
+      const t = (i + 0.5) / COUNT;
+      const y = t * HEIGHT;
+      const r = (y / HEIGHT) * RADIUS;
+      const theta = i * golden;
+      positions[i * 3] = Math.cos(theta) * r;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = Math.sin(theta) * r;
+      const mix = (state % 7 === 0) ? gold : (state % 3 === 0) ? ice : paper;
+      colors[i * 3] = mix.r;
+      colors[i * 3 + 1] = mix.g;
+      colors[i * 3 + 2] = mix.b;
+      seeds[i] = (state % 256) / 255;
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    starGeo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
+    starGeo.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+    const stars = new THREE.Points(
+      starGeo,
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uTime: { value: 0 } },
+        vertexShader: `
+          attribute float aSeed;
+          attribute vec3 aColor;
+          varying vec3 vColor;
+          uniform float uTime;
+          void main() {
+            vColor = aColor;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            float tw = 0.7 + 0.3 * sin(uTime * (0.5 + aSeed) + aSeed * 6.28318);
+            gl_PointSize = (1.5 + aSeed * 2.6) * tw * (170.0 / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          void main() {
+            vec2 d = gl_PointCoord - vec2(0.5);
+            float r = length(d);
+            if (r > 0.5) discard;
+            float a = smoothstep(0.5, 0.08, r);
+            gl_FragColor = vec4(vColor, a);
+          }
+        `,
+      }),
+    );
+    root.add(stars);
+
+    // Distant dust, not part of the reticle.
+    const dustN = 500;
+    const dustPos = new Float32Array(dustN * 3);
+    for (let i = 0; i < dustN; i++) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = 2 * Math.PI * u;
+      const phi = Math.acos(2 * v - 1);
+      const rad = 28 + Math.random() * 18;
+      dustPos[i * 3] = rad * Math.sin(phi) * Math.cos(theta);
+      dustPos[i * 3 + 1] = rad * Math.cos(phi);
+      dustPos[i * 3 + 2] = rad * Math.sin(phi) * Math.sin(theta);
+    }
+    const dustGeo = new THREE.BufferGeometry();
+    dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
+    scene.add(new THREE.Points(
+      dustGeo,
+      new THREE.PointsMaterial({
+        color: 0x9a9284,
+        size: 0.045,
+        transparent: true,
+        opacity: 0.55,
+        sizeAttenuation: true,
+      }),
+    ));
+
+    function makeLabel(text) {
+      const c = document.createElement("canvas");
+      c.width = 512;
+      c.height = 128;
+      const g = c.getContext("2d");
+      g.clearRect(0, 0, 512, 128);
+      g.font = "500 46px ui-monospace, Menlo, Consolas, monospace";
+      g.fillStyle = "#f3ecdf";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(text, 256, 64);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+      }));
+      sprite.scale.set(2.2, 0.55, 1);
+      return sprite;
+    }
+
+    const rings = [];
+    const ringSpec = [
+      { fact: 120, y: yOf(48), speed: 0.32, color: 0x8fd0e8, label: "YHWH", phase: 0.2 },
+      { fact: 720, y: yOf(110), speed: 0.16, color: 0xf3ecdf, label: "YAHWEH", phase: 1.4 },
+      { fact: 5040, y: yOf(176), speed: 0.07, color: 0xe8c36a, label: "ADONAI", phase: 2.5 },
+    ];
+
+    for (const spec of ringSpec) {
+      const localR = (spec.y / HEIGHT) * RADIUS;
+      const radius = localR + 0.85;
+      const geo = new THREE.TorusGeometry(radius, 0.012, 8, 160);
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({ color: spec.color }),
+      );
+      const group = new THREE.Group();
+      group.position.y = spec.y;
+      group.rotation.x = Math.PI / 2;
+      group.add(mesh);
+      root.add(group);
+
+      const label = makeLabel(spec.label);
+      label.position.set(radius + 0.15, spec.y + 0.28, 0);
+      root.add(label);
+      rings.push({ ...spec, mesh, label, radius });
+    }
+
+    const gs = makeLabel("0x1D");
+    gs.position.set(0.95, yCoord + 0.42, 0);
+    root.add(gs);
+    const word = makeLabel("GOD IS WORD");
+    word.scale.set(3.1, 0.55, 1);
+    word.position.set(-1.6, 0.9, 1.2);
+    root.add(word);
+
+    scene.add(new THREE.PointLight(0xe8c36a, 1.4, 24, 2).translateY(0.2));
+    scene.add(new THREE.PointLight(0x8fd0e8, 0.8, 30, 2).translateY(yCoord));
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const clock = new THREE.Clock();
+
+    function frame() {
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const t = clock.elapsedTime;
+      if (!reduce) {
+        for (const ring of rings) {
+          ring.mesh.rotation.z += ring.speed * dt;
+          const s = 1 + Math.sin(t * ring.speed * 3 + ring.phase) * 0.015;
+          ring.mesh.scale.set(s, s, 1);
+          const a = t * ring.speed + ring.phase;
+          ring.label.position.x = Math.cos(a) * (ring.radius + 0.2);
+          ring.label.position.z = Math.sin(a) * (ring.radius + 0.2);
+        }
+        stars.material.uniforms.uTime.value = t;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    renderer.setAnimationLoop(frame);
+
+    function resize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / Math.max(h, 1);
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h, false);
+    }
+    window.addEventListener("resize", resize);
+
+    function factorial(n) {
+      let r = 1;
+      for (let i = 2; i <= n; i++) r *= i;
+      return r;
+    }
+
+    function isPrime(n) {
+      if (n < 2) return false;
+      if (n % 2 === 0) return n === 2;
+      for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false;
+      return true;
+    }
+
+    function obligations() {
+      const chain = [5, 11, 17, 23, 29];
+      const lines = [
+        `7! = ${factorial(7)}`,
+        `6! = ${factorial(6)}`,
+        `5! = ${factorial(5)}`,
+        `2^16 = ${1 << 16}`,
+        `2·3·5·7 = ${2 * 3 * 5 * 7}`,
+        `97 − 5 = ${97 - 5}`,
+        `exceptional ${chain.join(", ")} prime=${chain.every(isPrime)} gap6=${chain.every((p, i) => i === 0 || p - chain[i - 1] === 6)}`,
+        `regular anchor 97 prime=${isPrime(97)}`,
+      ];
+      return lines;
+    }
+
+    window.logObligations = function logObligations() {
+      const lines = obligations();
+      console.log("Modulus Indexer — numerical obligations");
+      for (const line of lines) console.log(line);
+      document.getElementById("readout").textContent = lines.slice(0, 6).join("   ·   ");
+      return lines;
+    };
+
+    document.getElementById("prove").addEventListener("click", () => {
+      window.logObligations();
+    });
+  </script>
+</body>
+</html>
