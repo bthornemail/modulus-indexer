@@ -52,12 +52,17 @@ const progressions = (k, d, bound) => {
   }
   return out;
 };
+const sextuplets = (bound) => {
+  const out = [];
+  for (let p = 2; p < bound; p++) if ([0, 4, 6, 10, 12, 16].every((k) => isPrime(p + k))) out.push(p);
+  return out;
+};
 const M = 0xffff;
 const rotl = (x, n) => ((x << n) | (x >>> (16 - n))) & M;
 const rotr = (x, n) => ((x >>> n) | (x << (16 - n))) & M;
 const next = (x) => (rotl(x, 1) ^ rotl(x, 3) ^ rotr(x, 2) ^ 0x1d1d) & M;   // the delta law (I-197, I-248)
 
-const held = { isPrime, factorial, progressions, next, apex: 5, ladder: 210, reticle: 65536 };
+const held = { isPrime, factorial, progressions, sextuplets, next, apex: 5, ladder: 210, reticle: 65536 };
 const env = new Proxy(held, {
   get(target, name, receiver) {
     if (!Reflect.has(target, name)) throw new ReferenceError(`"${String(name)}" is not defined`);
@@ -84,8 +89,15 @@ const claims = [
   [claim`every 16-bit word is back after 8 steps of the delta law ${function eight(e) { for (let x = 0; x < e.reticle; x++) { let s = x; for (let i = 0; i < 8; i++) s = e.next(s); if (s !== x) return false; } return true; }}`, "HOLDS"],
   // and not at 4: some word is not back (I-248: under 0x1D1D, 61,440 turn in 8)
   [claim`every 16-bit word is back after 4 steps of the delta law ${function four(e) { for (let x = 0; x < e.reticle; x++) { let s = x; for (let i = 0; i < 4; i++) s = e.next(s); if (s !== x) return false; } return true; }}`, "FAILS"],
-  // 97: no reading in the environment chooses it; the claim is not defined, and says so
-  [claim`97 is the anchor because ${function anchor(e) { return e.anchor(97); }}`, 'ReferenceError: "anchor" is not defined'],
+  // 97, as the record reads it (boxedPINE core.test.ts I-104, proofs I-183): every prime sextuplet
+  // (p, p+4, p+6, p+10, p+12, p+16) after the first, {7 ... 23}, starts at 97 mod 210: the regular ladder
+  [claim`every prime sextuplet after the first starts at 97 mod 210 ${function ladder97(e) { const s = e.sextuplets(100000); return s[0] === 7 && s.length > 2 && s.slice(1).every((p) => p % e.ladder === 97); }}`, "HOLDS"],
+  // its falsifier: the same of 89, the unit of 210 before 97
+  [claim`every prime sextuplet after the first starts at 89 mod 210 ${function ladder89(e) { return e.sextuplets(100000).slice(1).every((p) => p % e.ladder === 89); }}`, "FAILS"],
+  // the coordinate: from the exceptional quintuplet's start to the regular ladder's
+  [claim`92 is the distance from the one quintuplet six apart to the first ladder sextuplet ${function coordinate(e) { return e.sextuplets(100000)[1] - e.progressions(5, 6, 100000)[0] === 92; }}`, "HOLDS"],
+  // no clock is in the environment (time here is a sequence, not a reading of a clock): not defined
+  [claim`the coordinate is a time ${function time(e) { return e.clock() === 92; }}`, 'ReferenceError: "clock" is not defined'],
   // the environment cannot be written to
   [claim`the apex can be moved ${function moveApex(e) { e.apex = 7; return true; }}`, 'TypeError: "apex" is read-only'],
   // a reading that is not a number of the ladder: the reference's RangeError, caught, not swallowed
